@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Участник - Весенний кахут</title>
+    <title>👤 Подключение к игре | 8 Марта викторина</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -315,10 +315,9 @@
     <script src="firebase-config.js"></script>
     <script>
         // ============================================
-        // student.js - 8 МАРТА
+        // student.js - 8 МАРТА с рандомизацией
         // ============================================
 
-        // Проверка загрузки вопросов
         console.log("🔍 Проверка QUIZ_DATA:", window.QUIZ_DATA);
         
         if (!window.QUIZ_DATA) {
@@ -330,6 +329,7 @@
         let currentGameId = null;
         let playerName = null;
         let currentQuestion = null;
+        let currentShuffledQuestion = null; // Для хранения перемешанного вопроса
         let hasAnswered = false;
         let gameListener = null;
 
@@ -367,6 +367,7 @@
         function resetQuestionState() {
             hasAnswered = false;
             currentQuestion = null;
+            currentShuffledQuestion = null;
             questionText.textContent = 'Загрузка вопроса...';
             optionsContainer.innerHTML = '';
             answerStatus.textContent = '⏳ Выбери вариант ответа';
@@ -463,8 +464,19 @@
                         if (!currentQuestion || currentQuestion.id !== question.id) {
                             console.log("📌 Новый вопрос:", question.id);
                             resetQuestionState();
+                            
+                            // Сохраняем оригинальный вопрос
                             currentQuestion = question;
-                            displayQuestion(question);
+                            
+                            // Перемешиваем варианты для этого игрока
+                            const shuffled = window.getShuffledOptions(question);
+                            currentShuffledQuestion = {
+                                ...question,
+                                options: shuffled.options,
+                                correct: shuffled.correct
+                            };
+                            
+                            displayQuestion(currentShuffledQuestion);
                         }
                     }
                 }
@@ -500,7 +512,7 @@
                 return;
             }
             
-            if (!currentQuestion || !currentGameId || !playerName) {
+            if (!currentShuffledQuestion || !currentGameId || !playerName) {
                 return;
             }
             
@@ -513,16 +525,17 @@
                 }
             });
             
-            const isCorrect = (answerIndex === currentQuestion.correct);
+            const isCorrect = (answerIndex === currentShuffledQuestion.correct);
             
-            db.ref(`games/${currentGameId}/answers/${currentQuestion.id}/${playerName}`).set({
+            // Отправляем ответ с указанием, что ответ правильный или нет
+            db.ref(`games/${currentGameId}/answers/${currentShuffledQuestion.id}/${playerName}`).set({
                 answerIndex: answerIndex,
                 isCorrect: isCorrect,
                 timestamp: Date.now()
             }).then(() => {
                 if (isCorrect) {
                     db.ref(`games/${currentGameId}/players/${playerName}/score`).transaction(score => {
-                        return (score || 0) + (currentQuestion.points || 1);
+                        return (score || 0) + (currentShuffledQuestion.points || 1);
                     });
                 }
                 
@@ -551,6 +564,7 @@
             currentGameId = null;
             playerName = null;
             currentQuestion = null;
+            currentShuffledQuestion = null;
             hasAnswered = false;
             gameListener = null;
             
